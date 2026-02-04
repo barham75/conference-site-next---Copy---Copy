@@ -51,18 +51,30 @@ export default function RegisterPage() {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setMsg({ type: "err", text: data?.error || "حدث خطأ" });
-      } else {
+      // حاول قراءة JSON حتى لو status ليس 200
+      const data = await res.json().catch(() => null);
+
+      // ✅ لا تعتمد على res.ok إطلاقًا
+      if (!data?.ok) {
         setMsg({
-          type: "ok",
-          text: data.updated
+          type: "err",
+          text: data?.error || "حدث خطأ أثناء التسجيل. حاول مرة أخرى.",
+        });
+        return;
+      }
+
+      setMsg({
+        type: "ok",
+        text:
+          data.mode === "updated"
             ? "تم تحديث بياناتك بنجاح ✅ / Updated ✅"
             : "تم التسجيل بنجاح ✅ / Registered ✅",
-        });
+      });
+
+      // أعطِ المستخدم لحظة ليرى رسالة النجاح ثم تحويل
+      setTimeout(() => {
         router.push("/");
-      }
+      }, 600);
     } catch {
       setMsg({ type: "err", text: "تعذر الاتصال بالسيرفر." });
     } finally {
@@ -124,7 +136,11 @@ export default function RegisterPage() {
           />
         </label>
 
-        <button className="btn" disabled={loading} style={{ width: 220, margin: "0 auto" }}>
+        <button
+          className="btn"
+          disabled={loading}
+          style={{ width: 220, margin: "0 auto" }}
+        >
           {loading ? "..." : "دخول / Enter"}
         </button>
 
