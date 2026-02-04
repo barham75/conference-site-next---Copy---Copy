@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -11,9 +13,7 @@ export default function RegisterPage() {
   const [org, setOrg] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
-    null
-  );
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,10 +32,7 @@ export default function RegisterPage() {
       return;
     }
     if (!cleanOrg) {
-      setMsg({
-        type: "err",
-        text: "يرجى إدخال المؤسسة/الجامعة / Please enter institution.",
-      });
+      setMsg({ type: "err", text: "يرجى إدخال المؤسسة/الجامعة / Please enter institution." });
       return;
     }
 
@@ -44,37 +41,39 @@ export default function RegisterPage() {
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: cleanName,
-          email: cleanEmail,
-          org: cleanOrg,
-        }),
+        body: JSON.stringify({ fullName: cleanName, email: cleanEmail, org: cleanOrg }),
       });
 
-      // حاول قراءة JSON حتى لو status ليس 200
-      const data = await res.json().catch(() => null);
+      // اقرأ النص أولًا (أكثر أمانًا من res.json مباشرة)
+      const text = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { ok: false, error: "Non-JSON response from /api/register", raw: text };
+      }
 
-      // ✅ لا تعتمد على res.ok إطلاقًا
       if (!data?.ok) {
+        // ✅ هنا سنعرض السبب الحقيقي بدل "Unauthorized"
         setMsg({
           type: "err",
-          text: data?.error || "حدث خطأ أثناء التسجيل. حاول مرة أخرى.",
+          text: `فشل التسجيل: ${data?.error || "Unknown error"}\n\nDEBUG: ${JSON.stringify(
+            { status: res.status, data },
+            null,
+            2
+          )}`,
         });
         return;
       }
 
       setMsg({
         type: "ok",
-        text:
-          data.mode === "updated"
-            ? "تم تحديث بياناتك بنجاح ✅ / Updated ✅"
-            : "تم التسجيل بنجاح ✅ / Registered ✅",
+        text: data.mode === "updated"
+          ? "تم تحديث بياناتك بنجاح ✅ / Updated ✅"
+          : "تم التسجيل بنجاح ✅ / Registered ✅",
       });
 
-      // أعطِ المستخدم لحظة ليرى رسالة النجاح ثم تحويل
-      setTimeout(() => {
-        router.push("/");
-      }, 600);
+      setTimeout(() => router.push("/"), 600);
     } catch {
       setMsg({ type: "err", text: "تعذر الاتصال بالسيرفر." });
     } finally {
@@ -94,12 +93,12 @@ export default function RegisterPage() {
       </div>
 
       {msg && (
-        <div
+        <pre
           className={msg.type === "ok" ? "success" : "error"}
-          style={{ marginBottom: 12 }}
+          style={{ marginBottom: 12, whiteSpace: "pre-wrap" }}
         >
           {msg.text}
-        </div>
+        </pre>
       )}
 
       <form onSubmit={submit} className="grid" style={{ gap: 12 }}>
@@ -136,11 +135,7 @@ export default function RegisterPage() {
           />
         </label>
 
-        <button
-          className="btn"
-          disabled={loading}
-          style={{ width: 220, margin: "0 auto" }}
-        >
+        <button className="btn" disabled={loading} style={{ width: 220, margin: "0 auto" }}>
           {loading ? "..." : "دخول / Enter"}
         </button>
 
