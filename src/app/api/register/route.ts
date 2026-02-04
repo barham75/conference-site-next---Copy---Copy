@@ -15,25 +15,53 @@ export async function POST(req: Request) {
       );
     }
 
-    const res = await fetch(process.env.GOOGLE_SCRIPT_URL!, {
+    // فحص سريع: إذا env ناقصة على Vercel
+    if (!process.env.GOOGLE_SCRIPT_URL || !process.env.GOOGLE_SCRIPT_SECRET) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Missing GOOGLE_SCRIPT_URL or GOOGLE_SCRIPT_SECRET on server",
+        },
+        { status: 500 }
+      );
+    }
+
+    const payload = {
+      action: "register",
+      fullName,
+      email,
+      org,
+      secret: process.env.GOOGLE_SCRIPT_SECRET,
+    };
+
+    const res = await fetch(process.env.GOOGLE_SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "register",
-        fullName,
-        email,
-        org,
-        secret: process.env.GOOGLE_SCRIPT_SECRET,
-      }),
+      body: JSON.stringify(payload),
     });
 
-    // ⚠️ لا تعتمد على res.ok
-    const data = await res.json();
+    // محاولة قراءة JSON، وإذا فشل نرجع النص الخام
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { ok: false, error: "Non-JSON response from Google Script", raw: text };
+    }
 
-    // ✅ التحقق الصحيح
-    if (!data.ok) {
+    // ✅ Debug: رجّع الرد كاملًا إذا فشل
+    if (!data?.ok) {
       return NextResponse.json(
-        { ok: false, error: data.error || "Unauthorized" },
+        {
+          ok: false,
+          error: data?.error || "Unauthorized",
+          debug: {
+            status: res.status,
+            responseText: text,
+            sentAction: payload.action,
+            sentEmail: email,
+          },
+        },
         { status: 401 }
       );
     }
