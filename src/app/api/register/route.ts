@@ -6,7 +6,9 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { fullName, email, org } = body;
+    const fullName = String(body?.fullName || "").trim();
+    const email = String(body?.email || "").trim().toLowerCase();
+    const org = String(body?.org || "").trim();
 
     if (!fullName || !email || !org) {
       return NextResponse.json(
@@ -15,8 +17,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // فحص سريع: إذا env ناقصة على Vercel
-    if (!process.env.GOOGLE_SCRIPT_URL || !process.env.GOOGLE_SCRIPT_SECRET) {
+    const url = process.env.GOOGLE_SCRIPT_URL?.trim();
+    const secret = process.env.GOOGLE_SCRIPT_SECRET?.trim();
+
+    if (!url || !secret) {
       return NextResponse.json(
         {
           ok: false,
@@ -31,46 +35,56 @@ export async function POST(req: Request) {
       fullName,
       email,
       org,
-      secret: process.env.GOOGLE_SCRIPT_SECRET,
+      secret,
     };
 
-    const res = await fetch(process.env.GOOGLE_SCRIPT_URL, {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      cache: "no-store",
     });
 
-    // محاولة قراءة JSON، وإذا فشل نرجع النص الخام
     const text = await res.text();
+
+    // حاول JSON
     let data: any = null;
     try {
       data = JSON.parse(text);
     } catch {
-      data = { ok: false, error: "Non-JSON response from Google Script", raw: text };
+      // إذا السكربت رجّع HTML/نص (غالبًا خطأ نشر/صلاحيات)
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Google Script returned non-JSON (publish/access issue likely)",
+          debug: {
+            upstreamStatus: res.status,
+            responseText: text.slice(0, 800), // قص للتخفيف
+          },
+        },
+        { status: 502 }
+      );
     }
 
-    // ✅ Debug: رجّع الرد كاملًا إذا فشل
+    // إذا السكربت قال فشل
     if (!data?.ok) {
       return NextResponse.json(
         {
           ok: false,
-          error: data?.error || "Unauthorized",
+          error: data?.error || "Upstream failed",
           debug: {
-            status: res.status,
-            responseText: text,
+            upstreamStatus: res.status,
+            upstreamData: data,
             sentAction: payload.action,
             sentEmail: email,
           },
         },
-        { status: 401 }
+        { status: res.status >= 400 ? res.status : 400 }
       );
     }
 
     // نجاح
-    return NextResponse.json({
-      ok: true,
-      mode: data.mode || "created",
-    });
+    return NextResponse.json({ ok: true, mode: data.mode || "created" }, { status: 200 });
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: e?.message || "Server error" },
