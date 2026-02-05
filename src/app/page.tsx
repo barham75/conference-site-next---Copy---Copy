@@ -2,9 +2,13 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function readUser() {
   const c = cookies().get("conf_user")?.value;
   if (!c) return null;
+
   try {
     const json = Buffer.from(c, "base64").toString("utf8");
     return JSON.parse(json) as { fullName: string; email: string; org: string };
@@ -32,7 +36,9 @@ export default function HomePage() {
           Welcome, {user.fullName}
         </h1>
         <div className="small">
-          <span className="badge" style={{ marginInlineEnd: 8 }}>{user.email}</span>
+          <span className="badge" style={{ marginInlineEnd: 8 }}>
+            {user.email}
+          </span>
           <span className="badge">{user.org}</span>
         </div>
       </div>
@@ -43,7 +49,9 @@ export default function HomePage() {
             <div style={{ fontWeight: 900, fontSize: 16 }}>
               {it.ar} / {it.en}
             </div>
-            <div className="small" style={{ marginTop: 6 }}>فتح / Open</div>
+            <div className="small" style={{ marginTop: 6 }}>
+              فتح / Open
+            </div>
           </Link>
         ))}
       </div>

@@ -18,8 +18,8 @@ export default function RegisterClient() {
 
     if (!fullName.trim()) return setMsg({ type: "err", text: "الاسم مطلوب." });
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail))
-      return setMsg({ type: "err", text: "يرجى إدخال بريد إلكتروني صحيح." });
-    if (!org.trim()) return setMsg({ type: "err", text: "المؤسسة / الجامعة مطلوبة." });
+      return setMsg({ type: "err", text: "يرجى إدخال بريد صحيح." });
+    if (!org.trim()) return setMsg({ type: "err", text: "المؤسسة/الجامعة مطلوبة." });
 
     setLoading(true);
     try {
@@ -29,37 +29,24 @@ export default function RegisterClient() {
         body: JSON.stringify({ fullName, email: cleanEmail, org }),
       });
 
-      // اقرأ الرد كنص (حتى لو ليس JSON)
       const raw = await r.text();
 
       let data: any;
       try {
         data = JSON.parse(raw);
       } catch {
-        data = { ok: false, error: "Non-JSON response from server", raw };
+        data = { ok: false, error: "Non-JSON from /api/register", raw };
       }
 
-      // ✅ اطبع كل شيء بشكل واضح
       console.log("API /api/register status:", r.status);
-      console.log("REGISTER ERROR:", JSON.stringify(data, null, 2));
+      console.log("API /api/register response:", JSON.stringify(data, null, 2));
 
       if (!r.ok || !data?.ok) {
-        // إن كان هناك debug، اعرض جزء مفيد للمستخدم
-        const debugHint =
-          data?.debug?.upstream?.debug
-            ? ` (debug: ${JSON.stringify(data.debug.upstream.debug)})`
-            : "";
-
-        setMsg({
-          type: "err",
-          text: (data?.error || `Server error (${r.status})`) + debugHint,
-        });
+        setMsg({ type: "err", text: data?.error || `Server error (${r.status})` });
         return;
       }
 
       setMsg({ type: "ok", text: "تم التسجيل بنجاح ✅" });
-      // إذا تريد تحويل بعد النجاح:
-      // window.location.href = "/";
     } catch (err: any) {
       console.error("NETWORK ERROR:", err);
       setMsg({ type: "err", text: err?.message || "خطأ اتصال" });
@@ -115,4 +102,17 @@ export default function RegisterClient() {
           disabled={loading}
           style={{
             padding: 12,
-            borderRadiu
+            borderRadius: 12,
+            border: "none",
+            background: "#0f766e",
+            color: "white",
+            fontWeight: 700,
+            cursor: loading ? "not-allowed" : "pointer",
+          }}
+        >
+          {loading ? "..." : "Enter / دخول"}
+        </button>
+      </form>
+    </div>
+  );
+}
